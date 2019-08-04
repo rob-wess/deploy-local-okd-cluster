@@ -1,5 +1,5 @@
 - name: Deploy Local OKD Cluster
-  hosts: 192.168.1.110
+  hosts: localhost
   become: true
   roles:
     - deploy-okd
