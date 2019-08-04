@@ -1,0 +1,122 @@
+- name: Update system
+  yum:
+    name: '*'
+    state: latest
+  tags: update_system
+
+- name: Add Docker-Ce Repo
+  get_url:
+    url: https://download.docker.com/linux/centos/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+    mode: '0644'
+    owner: root
+    group: root
+  tags: add_docker_repo
+
+- name: Install Docker
+  yum:
+    name: "{{ item }}"
+    state: latest
+  loop:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+
+- name: Make Config Directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - /etc/docker
+    - /etc/containers
+  tags: make_config_directory
+
+- name: Install Registry Config
+  copy:
+    src: registries.conf
+    dest: /etc/containers/registries.conf
+    owner: root
+    group: root
+    mode: '0644'
+  tags: install_registry_config
+
+- name: Install Docker Daemon Config
+  copy:
+    src: daemon.json
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+  tags: install_docker_daemon_config
+
+- name: Reload Systemd
+  command: systemctl daemon-reload
+  tags: reload_systemd
+
+- name: Restart Docker
+  service:
+    name: docker
+    state: restarted
+    enabled: yes
+  tags: restart_docker
+
+- name: Enable IPv4 Forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: 1
+    sysctl_set: yes
+    reload: yes
+  tags: enable_ip_forwarding
+
+- name: Create New Firewalld Zone
+  command: firewall-cmd --permanent --new-zone dockerc
+  tags: create_new_firewalld_zone
+
+- name: Configure Firewalld Ports
+  firewalld:
+    zone: dockerc
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+  loop:
+    - 80/tcp
+    - 443/tcp
+    - 8443/tcp
+    - 53/udp
+    - 8053/udp
+  tags: add_firewalld_ports
+
+- name: Add Docker Bridge Source to Firewalld
+  firewalld:
+    zone: dockerc
+    permanent: yes
+    source: 172.17.0.0/16
+    state: enabled
+  tags: add_firewalld_source
+
+- name: Reload Firewalld
+  command: firewall-cmd --reload
+  tags: reload_firewalld
+
+- name: Add Docker-Ce Repo
+  get_url:
+    url: https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+    dest: /tmp/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+    mode: '0644'
+    owner: root
+    group: root
+  tags: download_oc_library
+
+- name: Untar OC Library
+  unarchive:
+    src: /tmp/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+    dest: /tmp/openshift-origin-client/
+  tags: untar_oc_library
+
+- name: Move OC Binaries
+  command: cd /tmp/openshift-origin-client/ && cp oc kubectl /usr/local/bin/
+  command: chown -R root:root /usr/localbin/
+  command: chmod -R 755 /usr/local/bin/
