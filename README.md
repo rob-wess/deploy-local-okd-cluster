@@ -6,4 +6,4 @@ Created for CentOS 7
 
 After ansible plays complete, switch user to docker and cd ~/
 
-Run `oc cluster up --public-hostname=<Public IP>
+Run `oc cluster up --public-hostname=<Public IP>`
